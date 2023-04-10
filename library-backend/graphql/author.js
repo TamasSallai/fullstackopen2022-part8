@@ -1,5 +1,7 @@
 const { gql } = require('graphql-tag')
+const { GraphQLError } = require('graphql')
 const Author = require('../models/author')
+const book = require('../models/book')
 
 const typeDefs = gql`
   type Author {
@@ -25,9 +27,10 @@ const resolvers = {
       const authors = await Author.find({})
       return Promise.all(
         authors.map(async (a) => ({
+          id: a._id,
           name: a.name,
           born: a.born,
-          bookCount: await Book.countDocuments({ author: a._id }),
+          bookCount: a.bookCount,
         }))
       )
     },

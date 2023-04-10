@@ -1,5 +1,10 @@
+const { PubSub } = require('graphql-subscriptions')
+const { GraphQLError } = require('graphql')
 const { gql } = require('graphql-tag')
 const Book = require('../models/book')
+const Author = require('../models/author')
+
+const pubsub = new PubSub()
 
 const typeDefs = gql`
   enum Genre {
@@ -32,6 +37,10 @@ const typeDefs = gql`
       published: Int!
       genres: [Genre!]!
     ): Book
+  }
+
+  type Subscription {
+    bookAdded: Book!
   }
 `
 
@@ -89,17 +98,9 @@ const resolvers = {
       }
 
       let author = await Author.findOne({ name: args.author })
+
       if (!author) {
         author = new Author({ name: args.author })
-        try {
-          await author.save()
-        } catch (error) {
-          throw new GraphQLError('Saving author failed.', {
-            extensions: {
-              error,
-            },
-          })
-        }
       }
 
       const book = new Book({
@@ -109,17 +110,19 @@ const resolvers = {
         genres: args.genres,
       })
 
-      try {
-        await book.save()
-      } catch (error) {
-        throw new GraphQLError('Saving book failed.', {
-          extensions: {
-            code: 'BAD_USER_INPUT',
-            error,
-          },
-        })
-      }
+      author.bookCount = !author.bookCount ? 1 : author.bookCount + 1
+      author.save()
+
+      await book.save()
+
+      pubsub.publish('BOOK_ADDED', { bookAdded: book.populate('author') })
+
       return book.populate('author')
+    },
+  },
+  Subscription: {
+    bookAdded: {
+      subscribe: () => pubsub.asyncIterator('BOOK_ADDED'),
     },
   },
 }

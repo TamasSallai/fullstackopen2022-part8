@@ -1,3 +1,4 @@
+const { GraphQLError } = require('graphql')
 const { gql } = require('graphql-tag')
 const jwt = require('jsonwebtoken')
 const User = require('../models/user')
